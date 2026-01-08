@@ -35,6 +35,7 @@ Directives (`/think`, `/verbose`, `/reasoning`, `/elevated`) are parsed even whe
 
 Text + native (when enabled):
 - `/help`
+- `/commands`
 - `/status` (show current status; includes a short usage line when available)
 - `/usage` (alias: `/status`)
 - `/debug show|set|unset|reset` (runtime overrides, owner-only)

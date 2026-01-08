@@ -40,8 +40,16 @@ describe("control command parsing", () => {
   it("treats bare commands as non-control", () => {
     expect(hasControlCommand("send")).toBe(false);
     expect(hasControlCommand("help")).toBe(false);
+    expect(hasControlCommand("/commands")).toBe(true);
+    expect(hasControlCommand("/commands:")).toBe(true);
+    expect(hasControlCommand("commands")).toBe(false);
+    expect(hasControlCommand("/status")).toBe(true);
+    expect(hasControlCommand("/status:")).toBe(true);
     expect(hasControlCommand("status")).toBe(false);
     expect(hasControlCommand("usage")).toBe(false);
+    expect(hasControlCommand("/compact")).toBe(true);
+    expect(hasControlCommand("/compact:")).toBe(true);
+    expect(hasControlCommand("compact")).toBe(false);
 
     for (const command of listChatCommands()) {
       for (const alias of command.textAliases) {

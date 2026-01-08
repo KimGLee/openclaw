@@ -1,11 +1,14 @@
 import type { ClawdbotConfig } from "../config/types.js";
 
+export type CommandScope = "text" | "native" | "both";
+
 export type ChatCommandDefinition = {
   key: string;
-  nativeName: string;
+  nativeName?: string;
   description: string;
   textAliases: string[];
   acceptsArgs?: boolean;
+  scope: CommandScope;
 };
 
 export type NativeCommandSpec = {
@@ -14,15 +17,27 @@ export type NativeCommandSpec = {
   acceptsArgs: boolean;
 };
 
-function defineChatCommand(
-  command: Omit<ChatCommandDefinition, "textAliases"> & { textAlias: string },
-): ChatCommandDefinition {
+function defineChatCommand(command: {
+  key: string;
+  nativeName?: string;
+  description: string;
+  acceptsArgs?: boolean;
+  textAlias?: string;
+  textAliases?: string[];
+  scope?: CommandScope;
+}): ChatCommandDefinition {
+  const aliases =
+    command.textAliases ?? (command.textAlias ? [command.textAlias] : []);
+  const scope =
+    command.scope ??
+    (command.nativeName ? (aliases.length ? "both" : "native") : "text");
   return {
     key: command.key,
     nativeName: command.nativeName,
     description: command.description,
     acceptsArgs: command.acceptsArgs,
-    textAliases: [command.textAlias],
+    textAliases: aliases,
+    scope,
   };
 }
 
@@ -52,6 +67,12 @@ export const CHAT_COMMANDS: ChatCommandDefinition[] = (() => {
       nativeName: "help",
       description: "Show available commands.",
       textAlias: "/help",
+    }),
+    defineChatCommand({
+      key: "commands",
+      nativeName: "commands",
+      description: "List all slash commands.",
+      textAlias: "/commands",
     }),
     defineChatCommand({
       key: "status",
@@ -112,6 +133,13 @@ export const CHAT_COMMANDS: ChatCommandDefinition[] = (() => {
       textAlias: "/new",
     }),
     defineChatCommand({
+      key: "compact",
+      description: "Compact the session context.",
+      textAlias: "/compact",
+      scope: "text",
+      acceptsArgs: true,
+    }),
+    defineChatCommand({
       key: "think",
       nativeName: "think",
       description: "Set thinking level.",
@@ -167,27 +195,6 @@ export const CHAT_COMMANDS: ChatCommandDefinition[] = (() => {
 
 const NATIVE_COMMAND_SURFACES = new Set(["discord", "slack", "telegram"]);
 
-type TextAliasSpec = {
-  canonical: string;
-  acceptsArgs: boolean;
-};
-
-const TEXT_ALIAS_MAP: Map<string, TextAliasSpec> = (() => {
-  const map = new Map<string, TextAliasSpec>();
-  for (const command of CHAT_COMMANDS) {
-    const canonical = `/${command.key}`;
-    const acceptsArgs = Boolean(command.acceptsArgs);
-    for (const alias of command.textAliases) {
-      const normalized = alias.trim().toLowerCase();
-      if (!normalized) continue;
-      if (!map.has(normalized)) {
-        map.set(normalized, { canonical, acceptsArgs });
-      }
-    }
-  }
-  return map;
-})();
-
 let cachedDetection:
   | {
       exact: Set<string>;
@@ -204,8 +211,10 @@ export function listChatCommands(): ChatCommandDefinition[] {
 }
 
 export function listNativeCommandSpecs(): NativeCommandSpec[] {
-  return CHAT_COMMANDS.map((command) => ({
-    name: command.nativeName,
+  return CHAT_COMMANDS.filter(
+    (command) => command.scope !== "text" && command.nativeName,
+  ).map((command) => ({
+    name: command.nativeName ?? command.key,
     description: command.description,
     acceptsArgs: Boolean(command.acceptsArgs),
   }));
@@ -216,7 +225,9 @@ export function findCommandByNativeName(
 ): ChatCommandDefinition | undefined {
   const normalized = name.trim().toLowerCase();
   return CHAT_COMMANDS.find(
-    (command) => command.nativeName.toLowerCase() === normalized,
+    (command) =>
+      command.nativeName?.toLowerCase() === normalized &&
+      command.scope !== "text",
   );
 }
 
@@ -228,31 +239,11 @@ export function buildCommandText(commandName: string, args?: string): string {
 export function normalizeCommandBody(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed.startsWith("/")) return trimmed;
-
-  const colonMatch = trimmed.match(/^\/([^\s:]+)\s*:(.*)$/);
-  const normalized = colonMatch
-    ? (() => {
-        const [, command, rest] = colonMatch;
-        const normalizedRest = rest.trimStart();
-        return normalizedRest ? `/${command} ${normalizedRest}` : `/${command}`;
-      })()
-    : trimmed;
-
-  const lowered = normalized.toLowerCase();
-  const exact = TEXT_ALIAS_MAP.get(lowered);
-  if (exact) return exact.canonical;
-
-  const tokenMatch = normalized.match(/^\/([^\s]+)(?:\s+([\s\S]+))?$/);
-  if (!tokenMatch) return normalized;
-  const [, token, rest] = tokenMatch;
-  const tokenKey = `/${token.toLowerCase()}`;
-  const tokenSpec = TEXT_ALIAS_MAP.get(tokenKey);
-  if (!tokenSpec) return normalized;
-  if (rest && !tokenSpec.acceptsArgs) return normalized;
-  const normalizedRest = rest?.trimStart();
-  return normalizedRest
-    ? `${tokenSpec.canonical} ${normalizedRest}`
-    : tokenSpec.canonical;
+  const match = trimmed.match(/^\/([^\s:]+)\s*:(.*)$/);
+  if (!match) return trimmed;
+  const [, command, rest] = match;
+  const normalizedRest = rest.trimStart();
+  return normalizedRest ? `/${command} ${normalizedRest}` : `/${command}`;
 }
 
 export function getCommandDetection(): { exact: Set<string>; regex: RegExp } {

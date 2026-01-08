@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { normalizeTestText } from "../../test/helpers/normalize-text.js";
 import { withTempHome } from "../../test/helpers/temp-home.js";
 import type { ClawdbotConfig } from "../config/config.js";
-import { buildStatusMessage } from "./status.js";
+import { buildCommandsMessage, buildStatusMessage } from "./status.js";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -293,6 +293,19 @@ describe("buildStatusMessage", () => {
         expect(normalizeTestText(text)).toContain("Context: 1.0k/32k");
       },
       { prefix: "clawdbot-status-" },
+    );
+  });
+});
+
+describe("buildCommandsMessage", () => {
+  it("lists commands with aliases and text-only hints", () => {
+    const text = buildCommandsMessage();
+    expect(text).toContain("/commands - List all slash commands.");
+    expect(text).toContain(
+      "/think (aliases: /thinking, /t) - Set thinking level.",
+    );
+    expect(text).toContain(
+      "/compact (text-only) - Compact the session context.",
     );
   });
 });
