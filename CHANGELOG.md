@@ -8,6 +8,7 @@ Docs: https://docs.clawd.bot
 - BlueBubbles: stop typing indicator on idle/no-reply. (#1439) Thanks @Nicell.
 - Auto-reply: only report a model switch when session state is available. (#1465) Thanks @robbyczgw-cla.
 - Control UI: resolve local avatar URLs with basePath across injection + identity RPC. (#1457) Thanks @dlauer.
+- Slack: remove deprecated `filetype` field from `files.uploadV2` to eliminate API warnings. (#1447) Thanks @jdrhyne.
 - Agents: surface concrete API error details instead of generic AI service errors.
 - Docs: fix gog auth services example to include docs scope. (#1454) Thanks @zerone0x.
 
@@ -15,7 +16,6 @@ Docs: https://docs.clawd.bot
 
 ### Fixes
 - Control UI: ignore bootstrap identity placeholder text for avatar values and fall back to the default avatar. https://docs.clawd.bot/cli/agents https://docs.clawd.bot/web/control-ui
-- Slack: remove deprecated `filetype` field from `files.uploadV2` to eliminate API warnings. (#1447)
 
 ## 2026.1.21
 
