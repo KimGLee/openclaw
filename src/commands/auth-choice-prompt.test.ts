@@ -68,10 +68,10 @@ describe("auth choice keep existing", () => {
       if (params.message === "OpenAI auth method") {
         const keepExisting = params.options.find((option) => option.value === "skip");
         expect(params.options[0]?.value).toBe("skip");
-        expect(keepExisting?.label).toBe("Keep existing");
-        expect(keepExisting?.hint).toContain("APIKey:");
-        expect(keepExisting?.hint).toContain("OAuth:");
-        expect(keepExisting?.hint).toContain("\n");
+        expect(keepExisting?.label).toContain("Keep existing");
+        expect(keepExisting?.label).toContain("\n  APIKey:");
+        expect(keepExisting?.label).toContain("\n  OAuth:");
+        expect(keepExisting?.hint).toBeUndefined();
         return "skip";
       }
       return params.options[0]?.value ?? "skip";

@@ -65,8 +65,7 @@ export function buildKeepExistingOption(params: {
   }
   return {
     value: "skip",
-    label: "Keep existing",
-    hint: lines.join("\n"),
+    label: ["Keep existing", ...lines.map((line) => `  ${line}`)].join("\n"),
   };
 }
 
