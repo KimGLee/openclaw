@@ -66,6 +66,19 @@ describe("fallback-state", () => {
     expect(resolved.nextState.activeModel).toBe("deepinfra/moonshotai/Kimi-K2.5");
   });
 
+  it("normalizes fallback reason whitespace for summaries", () => {
+    const resolved = resolveFallbackTransition({
+      selectedProvider: "fireworks",
+      selectedModel: "fireworks/minimax-m2p5",
+      activeProvider: "deepinfra",
+      activeModel: "moonshotai/Kimi-K2.5",
+      attempts: [{ ...baseAttempt, reason: "rate_limit\n\tburst" }],
+      state: {},
+    });
+
+    expect(resolved.reasonSummary).toBe("rate limit burst");
+  });
+
   it("refreshes reason when fallback remains active with same model pair", () => {
     const resolved = resolveFallbackTransition({
       selectedProvider: "fireworks",

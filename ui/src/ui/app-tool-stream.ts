@@ -339,8 +339,8 @@ function handleLifecycleFallbackEvent(host: CompactionHost, payload: AgentEventP
     resolveModelLabel(data.activeProvider, data.activeModel) ??
     resolveModelLabel(data.toProvider, data.toModel);
   const previous =
-    toTrimmedString(data.previousActiveModel) ??
-    resolveModelLabel(data.previousActiveProvider, data.previousActiveModel);
+    resolveModelLabel(data.previousActiveProvider, data.previousActiveModel) ??
+    toTrimmedString(data.previousActiveModel);
   if (!selected || !active) {
     return;
   }

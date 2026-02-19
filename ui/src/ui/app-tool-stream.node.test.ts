@@ -83,4 +83,57 @@ describe("app-tool-stream fallback lifecycle handling", () => {
     expect(host.fallbackStatus).toBeNull();
     vi.useRealTimers();
   });
+
+  it("auto-clears fallback status after toast duration", () => {
+    vi.useFakeTimers();
+    const host = createHost();
+
+    handleAgentEvent(host, {
+      runId: "run-1",
+      seq: 1,
+      stream: "lifecycle",
+      ts: Date.now(),
+      sessionKey: "main",
+      data: {
+        phase: "fallback",
+        selectedProvider: "fireworks",
+        selectedModel: "fireworks/minimax-m2p5",
+        activeProvider: "deepinfra",
+        activeModel: "moonshotai/Kimi-K2.5",
+      },
+    });
+
+    expect(host.fallbackStatus).not.toBeNull();
+    vi.advanceTimersByTime(7_999);
+    expect(host.fallbackStatus).not.toBeNull();
+    vi.advanceTimersByTime(1);
+    expect(host.fallbackStatus).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("builds previous fallback label from provider + model on fallback_cleared", () => {
+    vi.useFakeTimers();
+    const host = createHost();
+
+    handleAgentEvent(host, {
+      runId: "run-1",
+      seq: 1,
+      stream: "lifecycle",
+      ts: Date.now(),
+      sessionKey: "main",
+      data: {
+        phase: "fallback_cleared",
+        selectedProvider: "fireworks",
+        selectedModel: "fireworks/minimax-m2p5",
+        activeProvider: "fireworks",
+        activeModel: "fireworks/minimax-m2p5",
+        previousActiveProvider: "deepinfra",
+        previousActiveModel: "moonshotai/Kimi-K2.5",
+      },
+    });
+
+    expect(host.fallbackStatus?.phase).toBe("cleared");
+    expect(host.fallbackStatus?.previous).toBe("deepinfra/moonshotai/Kimi-K2.5");
+    vi.useRealTimers();
+  });
 });

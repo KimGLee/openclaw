@@ -509,6 +509,30 @@ describe("runReplyAgent typing (heartbeat)", () => {
     expect(onToolResult).not.toHaveBeenCalled();
   });
 
+  it("retries transient HTTP failures once with timer-driven backoff", async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    state.runEmbeddedPiAgentMock.mockImplementation(async () => {
+      calls += 1;
+      if (calls === 1) {
+        throw new Error("502 Bad Gateway");
+      }
+      return { payloads: [{ text: "final" }], meta: {} };
+    });
+
+    const { run } = createMinimalRun({
+      typingMode: "message",
+    });
+    const runPromise = run();
+
+    await vi.advanceTimersByTimeAsync(2_499);
+    expect(calls).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    await runPromise;
+    expect(calls).toBe(2);
+    vi.useRealTimers();
+  });
+
   it("announces auto-compaction in verbose mode and tracks count", async () => {
     await withTempStateDir(async (stateDir) => {
       const storePath = path.join(stateDir, "sessions", "sessions.json");

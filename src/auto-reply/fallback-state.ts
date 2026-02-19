@@ -15,7 +15,9 @@ export function normalizeFallbackModelRef(value?: string): string | undefined {
 }
 
 function truncateFallbackReasonPart(value: string, max = FALLBACK_REASON_PART_MAX): string {
-  const text = String(value ?? "").trim();
+  const text = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (text.length <= max) {
     return text;
   }
