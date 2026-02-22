@@ -849,16 +849,23 @@ export async function runSubagentAnnounceFlow(params: {
 
     let requesterDepth = getSubagentDepthFromSessionStore(targetRequesterSessionKey);
 
-    let activeChildDescendantRuns = 0;
+    let pendingChildDescendantRuns = 0;
     try {
-      const { countActiveDescendantRuns } = await import("./subagent-registry.js");
-      activeChildDescendantRuns = Math.max(0, countActiveDescendantRuns(params.childSessionKey));
+      const { countPendingDescendantRuns, countActiveDescendantRuns } =
+        await import("./subagent-registry.js");
+      pendingChildDescendantRuns = Math.max(
+        0,
+        typeof countPendingDescendantRuns === "function"
+          ? countPendingDescendantRuns(params.childSessionKey)
+          : countActiveDescendantRuns(params.childSessionKey),
+      );
     } catch {
       // Best-effort only; fall back to direct announce behavior when unavailable.
     }
-    if (activeChildDescendantRuns > 0) {
-      // The finished run still has active descendant subagents. Defer announcing
-      // this run until descendants settle so we avoid posting in-progress updates.
+    if (pendingChildDescendantRuns > 0) {
+      // The finished run still has pending descendant subagents (either active,
+      // or ended but still finishing their own announce/cleanup flow). Defer
+      // announcing this run until descendants fully settle.
       shouldDeleteChildSession = false;
       return false;
     }

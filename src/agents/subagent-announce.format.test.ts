@@ -34,6 +34,7 @@ const embeddedRunMock = {
 const subagentRegistryMock = {
   isSubagentSessionRunActive: vi.fn(() => true),
   countActiveDescendantRuns: vi.fn((_sessionKey: string) => 0),
+  countPendingDescendantRuns: vi.fn((_sessionKey: string) => 0),
   resolveRequesterForChildSession: vi.fn((_sessionKey: string): RequesterResolution => null),
 };
 const subagentDeliveryTargetHookMock = vi.fn(
@@ -172,6 +173,7 @@ describe("subagent announce formatting", () => {
     embeddedRunMock.waitForEmbeddedPiRunEnd.mockClear().mockResolvedValue(true);
     subagentRegistryMock.isSubagentSessionRunActive.mockClear().mockReturnValue(true);
     subagentRegistryMock.countActiveDescendantRuns.mockClear().mockReturnValue(0);
+    subagentRegistryMock.countPendingDescendantRuns.mockClear().mockReturnValue(0);
     subagentRegistryMock.resolveRequesterForChildSession.mockClear().mockReturnValue(null);
     hasSubagentDeliveryTargetHook = false;
     hookRunnerMock.hasHooks.mockClear();
@@ -1339,7 +1341,7 @@ describe("subagent announce formatting", () => {
     expect(msg).toContain("If they are unrelated, respond normally using only the result above.");
   });
 
-  it("defers announce while finished runs still have active descendants", async () => {
+  it("defers announce while finished runs still have pending descendants", async () => {
     const cases = [
       {
         childRunId: "run-parent",
@@ -1352,7 +1354,7 @@ describe("subagent announce formatting", () => {
     for (const testCase of cases) {
       agentSpy.mockClear();
       sendSpy.mockClear();
-      subagentRegistryMock.countActiveDescendantRuns.mockImplementation((sessionKey: string) =>
+      subagentRegistryMock.countPendingDescendantRuns.mockImplementation((sessionKey: string) =>
         sessionKey === "agent:main:subagent:parent" ? 1 : 0,
       );
 

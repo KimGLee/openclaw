@@ -324,11 +324,12 @@ function finalizeSubagentCleanup(runId: string, cleanup: "delete" | "keep", didA
   if (!didAnnounce) {
     const now = Date.now();
     const endedAgo = typeof entry.endedAt === "number" ? now - entry.endedAt : 0;
-    // Normal defer: the run ended, but descendant runs are still active.
+    // Normal defer: descendant runs are still pending (either active, or
+    // ended but still finishing their own announce/cleanup flow).
     // Don't consume retry budget in this state or we can give up before
     // descendants finish and before the parent synthesizes the final reply.
-    const activeDescendantRuns = Math.max(0, countActiveDescendantRuns(entry.childSessionKey));
-    if (entry.expectsCompletionMessage === true && activeDescendantRuns > 0) {
+    const pendingDescendantRuns = Math.max(0, countPendingDescendantRuns(entry.childSessionKey));
+    if (entry.expectsCompletionMessage === true && pendingDescendantRuns > 0) {
       if (endedAgo > ANNOUNCE_EXPIRY_MS) {
         logAnnounceGiveUp(entry, "expiry");
         entry.cleanupCompletedAt = now;
@@ -821,6 +822,40 @@ export function countActiveDescendantRuns(rootSessionKey: string): number {
         continue;
       }
       if (typeof entry.endedAt !== "number") {
+        count += 1;
+      }
+      const childKey = entry.childSessionKey.trim();
+      if (!childKey || visited.has(childKey)) {
+        continue;
+      }
+      visited.add(childKey);
+      pending.push(childKey);
+    }
+  }
+  return count;
+}
+
+export function countPendingDescendantRuns(rootSessionKey: string): number {
+  const root = rootSessionKey.trim();
+  if (!root) {
+    return 0;
+  }
+  const runs = getRunsSnapshotForRead();
+  const pending = [root];
+  const visited = new Set<string>([root]);
+  let count = 0;
+  while (pending.length > 0) {
+    const requester = pending.shift();
+    if (!requester) {
+      continue;
+    }
+    for (const entry of runs.values()) {
+      if (entry.requesterSessionKey !== requester) {
+        continue;
+      }
+      const runEnded = typeof entry.endedAt === "number";
+      const cleanupCompleted = typeof entry.cleanupCompletedAt === "number";
+      if (!runEnded || !cleanupCompleted) {
         count += 1;
       }
       const childKey = entry.childSessionKey.trim();
