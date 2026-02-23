@@ -1347,6 +1347,11 @@ function formatStateRelative(ms?: number) {
   return formatRelativeTimestamp(ms);
 }
 
+function formatRunNextLabel(nextRunAtMs: number, nowMs = Date.now()) {
+  const rel = formatRelativeTimestamp(nextRunAtMs);
+  return nextRunAtMs > nowMs ? `Next ${rel}` : `Due ${rel}`;
+}
+
 function renderJobState(job: CronJob) {
   const status = job.state?.lastStatus ?? "n/a";
   const statusClass =
@@ -1417,7 +1422,7 @@ function renderRun(entry: CronRunLogEntry, basePath: string) {
         <div class="muted">${entry.durationMs ?? 0}ms</div>
         ${
           typeof entry.nextRunAtMs === "number"
-            ? html`<div class="muted">Next ${formatRelativeTimestamp(entry.nextRunAtMs)}</div>`
+            ? html`<div class="muted">${formatRunNextLabel(entry.nextRunAtMs)}</div>`
             : nothing
         }
         ${

@@ -222,6 +222,30 @@ describe("cron view", () => {
     expect(summaries[1]).toBe("older run");
   });
 
+  it("labels past nextRunAtMs as due instead of next", () => {
+    const container = document.createElement("div");
+    render(
+      renderCron(
+        createProps({
+          runsScope: "all",
+          runs: [
+            {
+              ts: Date.now(),
+              jobId: "job-1",
+              status: "ok",
+              summary: "done",
+              nextRunAtMs: Date.now() - 13 * 60_000,
+            },
+          ],
+        }),
+      ),
+      container,
+    );
+
+    expect(container.textContent).toContain("Due");
+    expect(container.textContent).not.toContain("Next 13");
+  });
+
   it("shows webhook delivery option in the form", () => {
     const container = document.createElement("div");
     render(
