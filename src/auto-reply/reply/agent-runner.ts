@@ -315,6 +315,11 @@ export async function runReplyAgent(params: {
       fallbackNoticeSelectedModel: undefined,
       fallbackNoticeActiveModel: undefined,
       fallbackNoticeReason: undefined,
+      lastMessagingToolSessionId: undefined,
+      lastMessagingToolSentAt: undefined,
+      lastMessagingToolSentTexts: undefined,
+      lastMessagingToolSentMediaUrls: undefined,
+      lastMessagingToolSentTargets: undefined,
     };
     const agentId = resolveAgentIdFromSessionKey(sessionKey);
     const nextSessionFile = resolveSessionTranscriptPath(
@@ -444,6 +449,7 @@ export async function runReplyAgent(params: {
     if (sessionDedupeEntry) {
       const now = Date.now();
       if (sentTexts.length || sentMediaUrls.length || sentTargets.length) {
+        sessionDedupeEntry.lastMessagingToolSessionId = followupRun.run.sessionId;
         sessionDedupeEntry.lastMessagingToolSentAt = now;
         sessionDedupeEntry.lastMessagingToolSentTexts = sentTexts;
         sessionDedupeEntry.lastMessagingToolSentMediaUrls = sentMediaUrls;
@@ -452,6 +458,7 @@ export async function runReplyAgent(params: {
         typeof sessionDedupeEntry.lastMessagingToolSentAt === "number" &&
         now - sessionDedupeEntry.lastMessagingToolSentAt > RECENT_MESSAGING_TOOL_DEDUPE_WINDOW_MS
       ) {
+        delete sessionDedupeEntry.lastMessagingToolSessionId;
         delete sessionDedupeEntry.lastMessagingToolSentAt;
         delete sessionDedupeEntry.lastMessagingToolSentTexts;
         delete sessionDedupeEntry.lastMessagingToolSentMediaUrls;
