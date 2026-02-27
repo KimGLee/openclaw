@@ -2,6 +2,7 @@ import {
   GATEWAY_EVENT_UPDATE_AVAILABLE,
   type GatewayUpdateAvailableEventPayload,
 } from "../../../src/gateway/events.js";
+import { ConnectErrorDetailCodes } from "../../../src/gateway/protocol/connect-error-details.js";
 import { CHAT_SESSIONS_ACTIVE_MINUTES, flushChatQueueForEvent } from "./app-chat.ts";
 import type { EventLogEntry } from "./app-events.ts";
 import {
@@ -42,6 +43,20 @@ import type {
   StatusSummary,
   UpdateAvailable,
 } from "./types.ts";
+
+function formatAuthCloseErrorMessage(code: string | null, fallback: string): string {
+  const c = code ?? "";
+  if (c === ConnectErrorDetailCodes.AUTH_TOKEN_MISMATCH) {
+    return "unauthorized: gateway token mismatch (open dashboard URL with current token)";
+  }
+  if (c === ConnectErrorDetailCodes.AUTH_RATE_LIMITED) {
+    return "unauthorized: too many failed authentication attempts (retry later)";
+  }
+  if (c === ConnectErrorDetailCodes.AUTH_UNAUTHORIZED) {
+    return "unauthorized: authentication failed";
+  }
+  return fallback;
+}
 
 type GatewayHost = {
   settings: UiSettings;
@@ -185,7 +200,11 @@ export function connectGateway(host: GatewayHost) {
         (typeof error?.code === "string" ? error.code : null);
       if (code !== 1012) {
         if (error?.message) {
-          host.lastError = error.message;
+          const message =
+            /fetch failed|failed to fetch/i.test(error.message) && host.lastErrorCode
+              ? formatAuthCloseErrorMessage(host.lastErrorCode, error.message)
+              : error.message;
+          host.lastError = message;
           return;
         }
         host.lastError = `disconnected (${code}): ${reason || "no reason"}`;

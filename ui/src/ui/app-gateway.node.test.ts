@@ -205,6 +205,48 @@ describe("connectGateway", () => {
     expect(host.lastErrorCode).toBeNull();
   });
 
+  it("maps generic fetch-failed auth errors to actionable token mismatch message", () => {
+    const host = createHost();
+
+    connectGateway(host);
+    const client = gatewayClientInstances[0];
+    expect(client).toBeDefined();
+
+    client.emitClose({
+      code: 4008,
+      reason: "connect failed",
+      error: {
+        code: "INVALID_REQUEST",
+        message: "Fetch failed",
+        details: { code: "AUTH_TOKEN_MISMATCH" },
+      },
+    });
+
+    expect(host.lastErrorCode).toBe("AUTH_TOKEN_MISMATCH");
+    expect(host.lastError).toContain("gateway token mismatch");
+  });
+
+  it("maps generic fetch-failed auth errors to actionable rate-limit message", () => {
+    const host = createHost();
+
+    connectGateway(host);
+    const client = gatewayClientInstances[0];
+    expect(client).toBeDefined();
+
+    client.emitClose({
+      code: 4008,
+      reason: "connect failed",
+      error: {
+        code: "INVALID_REQUEST",
+        message: "Failed to fetch",
+        details: { code: "AUTH_RATE_LIMITED" },
+      },
+    });
+
+    expect(host.lastErrorCode).toBe("AUTH_RATE_LIMITED");
+    expect(host.lastError).toContain("too many failed authentication attempts");
+  });
+
   it("prefers structured connect errors over close reason", () => {
     const host = createHost();
 
