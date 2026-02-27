@@ -35,7 +35,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   vi.useRealTimers();
-  runEmbeddedAttemptMock.mockClear();
+  runEmbeddedAttemptMock.mockReset();
 });
 
 const baseUsage = {
@@ -257,7 +257,7 @@ async function runAutoPinnedRotationCase(params: {
   sessionKey: string;
   runId: string;
 }) {
-  runEmbeddedAttemptMock.mockClear();
+  runEmbeddedAttemptMock.mockReset();
   return withAgentWorkspace(async ({ agentDir, workspaceDir }) => {
     await writeAuthStore(agentDir);
     mockFailedThenSuccessfulAttempt(params.errorMessage);
