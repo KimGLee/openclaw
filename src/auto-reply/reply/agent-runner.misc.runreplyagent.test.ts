@@ -133,8 +133,8 @@ describe("runReplyAgent onAgentRunStart", () => {
     } as unknown as TemplateContext;
     const resolvedQueue = { mode: "interrupt" } as unknown as QueueSettings;
     const followupRun = {
-      prompt: "hello",
-      summaryLine: "hello",
+      execution: { visibility: "internal", agentPrompt: "hello" },
+      display: { visibility: "user-visible", summaryLine: "hello" },
       enqueuedAt: Date.now(),
       run: {
         sessionId: "session",
@@ -244,8 +244,8 @@ describe("runReplyAgent authProfileId fallback scoping", () => {
 
     const resolvedQueue = { mode: "interrupt" } as unknown as QueueSettings;
     const followupRun = {
-      prompt: "hello",
-      summaryLine: "hello",
+      execution: { visibility: "internal", agentPrompt: "hello" },
+      display: { visibility: "user-visible", summaryLine: "hello" },
       enqueuedAt: Date.now(),
       run: {
         agentId: "main",
@@ -364,8 +364,8 @@ describe("runReplyAgent auto-compaction token update", () => {
     } as unknown as TemplateContext;
     const resolvedQueue = { mode: "interrupt" } as unknown as QueueSettings;
     const followupRun = {
-      prompt: "hello",
-      summaryLine: "hello",
+      execution: { visibility: "internal", agentPrompt: "hello" },
+      display: { visibility: "user-visible", summaryLine: "hello" },
       enqueuedAt: Date.now(),
       run: {
         agentId: "main",
@@ -867,8 +867,8 @@ describe("runReplyAgent block streaming", () => {
     } as unknown as TemplateContext;
     const resolvedQueue = { mode: "interrupt" } as unknown as QueueSettings;
     const followupRun = {
-      prompt: "hello",
-      summaryLine: "hello",
+      execution: { visibility: "internal", agentPrompt: "hello" },
+      display: { visibility: "user-visible", summaryLine: "hello" },
       enqueuedAt: Date.now(),
       run: {
         sessionId: "session",
@@ -969,8 +969,8 @@ describe("runReplyAgent block streaming", () => {
     } as unknown as TemplateContext;
     const resolvedQueue = { mode: "interrupt" } as unknown as QueueSettings;
     const followupRun = {
-      prompt: "hello",
-      summaryLine: "hello",
+      execution: { visibility: "internal", agentPrompt: "hello" },
+      display: { visibility: "user-visible", summaryLine: "hello" },
       enqueuedAt: Date.now(),
       run: {
         sessionId: "session",
@@ -1050,8 +1050,8 @@ describe("runReplyAgent claude-cli routing", () => {
     } as unknown as TemplateContext;
     const resolvedQueue = { mode: "interrupt" } as unknown as QueueSettings;
     const followupRun = {
-      prompt: "hello",
-      summaryLine: "hello",
+      execution: { visibility: "internal", agentPrompt: "hello" },
+      display: { visibility: "user-visible", summaryLine: "hello" },
       enqueuedAt: Date.now(),
       run: {
         sessionId: "session",
@@ -1149,8 +1149,8 @@ describe("runReplyAgent messaging tool suppression", () => {
     } as unknown as TemplateContext;
     const resolvedQueue = { mode: "interrupt" } as unknown as QueueSettings;
     const followupRun = {
-      prompt: "hello",
-      summaryLine: "hello",
+      execution: { visibility: "internal", agentPrompt: "hello" },
+      display: { visibility: "user-visible", summaryLine: "hello" },
       enqueuedAt: Date.now(),
       run: {
         sessionId: "session",
@@ -1372,8 +1372,8 @@ describe("runReplyAgent reminder commitment guard", () => {
     } as unknown as TemplateContext;
     const resolvedQueue = { mode: "interrupt" } as unknown as QueueSettings;
     const followupRun = {
-      prompt: "hello",
-      summaryLine: "hello",
+      execution: { visibility: "internal", agentPrompt: "hello" },
+      display: { visibility: "user-visible", summaryLine: "hello" },
       enqueuedAt: Date.now(),
       run: {
         sessionId: "session",
@@ -1591,8 +1591,8 @@ describe("runReplyAgent fallback reasoning tags", () => {
     const resolvedQueue = { mode: "interrupt" } as unknown as QueueSettings;
     const sessionKey = params?.sessionKey ?? "main";
     const followupRun = {
-      prompt: "hello",
-      summaryLine: "hello",
+      execution: { visibility: "internal", agentPrompt: "hello" },
+      display: { visibility: "user-visible", summaryLine: "hello" },
       enqueuedAt: Date.now(),
       run: {
         agentId: "main",
@@ -1712,8 +1712,8 @@ describe("runReplyAgent response usage footer", () => {
     };
 
     const followupRun = {
-      prompt: "hello",
-      summaryLine: "hello",
+      execution: { visibility: "internal", agentPrompt: "hello" },
+      display: { visibility: "user-visible", summaryLine: "hello" },
       enqueuedAt: Date.now(),
       run: {
         agentId: "main",
@@ -1823,8 +1823,8 @@ describe("runReplyAgent transient HTTP retry", () => {
     } as unknown as TemplateContext;
     const resolvedQueue = { mode: "interrupt" } as unknown as QueueSettings;
     const followupRun = {
-      prompt: "hello",
-      summaryLine: "hello",
+      execution: { visibility: "internal", agentPrompt: "hello" },
+      display: { visibility: "user-visible", summaryLine: "hello" },
       enqueuedAt: Date.now(),
       run: {
         sessionId: "session",
@@ -1899,8 +1899,8 @@ describe("runReplyAgent billing error classification", () => {
     } as unknown as TemplateContext;
     const resolvedQueue = { mode: "interrupt" } as unknown as QueueSettings;
     const followupRun = {
-      prompt: "hello",
-      summaryLine: "hello",
+      execution: { visibility: "internal", agentPrompt: "hello" },
+      display: { visibility: "user-visible", summaryLine: "hello" },
       enqueuedAt: Date.now(),
       run: {
         sessionId: "session",
@@ -1960,8 +1960,8 @@ describe("runReplyAgent mid-turn rate-limit fallback", () => {
     } as unknown as TemplateContext;
     const resolvedQueue = { mode: "interrupt" } as unknown as QueueSettings;
     const followupRun = {
-      prompt: "hello",
-      summaryLine: "hello",
+      execution: { visibility: "internal", agentPrompt: "hello" },
+      display: { visibility: "user-visible", summaryLine: "hello" },
       enqueuedAt: Date.now(),
       run: {
         sessionId: "session",
