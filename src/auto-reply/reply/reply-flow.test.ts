@@ -820,6 +820,8 @@ afterAll(() => {
 
 function createRun(params: {
   prompt: string;
+  displayText?: string;
+  summaryLine?: string;
   messageId?: string;
   originatingChannel?: FollowupRun["originatingChannel"];
   originatingTo?: string;
@@ -827,7 +829,15 @@ function createRun(params: {
   originatingThreadId?: string | number;
 }): FollowupRun {
   return {
-    prompt: params.prompt,
+    execution: { visibility: "internal", agentPrompt: params.prompt },
+    display:
+      params.displayText || params.summaryLine
+        ? {
+            visibility: "user-visible",
+            text: params.displayText,
+            summaryLine: params.summaryLine,
+          }
+        : undefined,
     messageId: params.messageId,
     enqueuedAt: Date.now(),
     originatingChannel: params.originatingChannel,
@@ -914,7 +924,7 @@ describe("followup queue deduplication", () => {
     scheduleFollowupDrain(key, runFollowup);
     await done.promise;
     // Should collect both unique messages
-    expect(calls[0]?.prompt).toContain("[Queued messages while agent was busy]");
+    expect(calls[0]?.execution.agentPrompt).toContain("[Queued messages while agent was busy]");
   });
 
   it("deduplicates same message_id after queue drain restarts", async () => {
@@ -1225,8 +1235,8 @@ describe("followup queue collect routing", () => {
 
     scheduleFollowupDrain(key, runFollowup);
     await done.promise;
-    expect(calls[0]?.prompt).toBe("one");
-    expect(calls[1]?.prompt).toBe("two");
+    expect(calls[0]?.execution.agentPrompt).toBe("one");
+    expect(calls[1]?.execution.agentPrompt).toBe("two");
   });
 
   it("collects when channel+destination match", async () => {
@@ -1268,7 +1278,7 @@ describe("followup queue collect routing", () => {
 
     scheduleFollowupDrain(key, runFollowup);
     await done.promise;
-    expect(calls[0]?.prompt).toContain("[Queued messages while agent was busy]");
+    expect(calls[0]?.execution.agentPrompt).toContain("[Queued messages while agent was busy]");
     expect(calls[0]?.originatingChannel).toBe("slack");
     expect(calls[0]?.originatingTo).toBe("channel:A");
   });
@@ -1314,7 +1324,7 @@ describe("followup queue collect routing", () => {
 
     scheduleFollowupDrain(key, runFollowup);
     await done.promise;
-    expect(calls[0]?.prompt).toContain("[Queued messages while agent was busy]");
+    expect(calls[0]?.execution.agentPrompt).toContain("[Queued messages while agent was busy]");
     expect(calls[0]?.originatingThreadId).toBe("1706000000.000001");
   });
 
@@ -1359,10 +1369,51 @@ describe("followup queue collect routing", () => {
 
     scheduleFollowupDrain(key, runFollowup);
     await done.promise;
-    expect(calls[0]?.prompt).toBe("one");
-    expect(calls[1]?.prompt).toBe("two");
+    expect(calls[0]?.execution.agentPrompt).toBe("one");
+    expect(calls[1]?.execution.agentPrompt).toBe("two");
     expect(calls[0]?.originatingThreadId).toBe("1706000000.000001");
     expect(calls[1]?.originatingThreadId).toBe("1706000000.000002");
+  });
+
+  it("collect mode renders explicit display payloads instead of internal prompts", async () => {
+    const key = `test-collect-display-boundary-${Date.now()}`;
+    const calls: FollowupRun[] = [];
+    const done = createDeferred<void>();
+    const runFollowup = async (run: FollowupRun) => {
+      calls.push(run);
+      done.resolve();
+    };
+    const settings: QueueSettings = {
+      mode: "collect",
+      debounceMs: 0,
+      cap: 50,
+      dropPolicy: "summarize",
+    };
+
+    enqueueFollowupRun(
+      key,
+      createRun({
+        prompt: "INTERNAL first prompt",
+        displayText: "visible first message",
+      }),
+      settings,
+    );
+    enqueueFollowupRun(
+      key,
+      createRun({
+        prompt: "INTERNAL second prompt",
+        displayText: "visible second message",
+      }),
+      settings,
+    );
+
+    scheduleFollowupDrain(key, runFollowup);
+    await done.promise;
+
+    expect(calls[0]?.execution.agentPrompt).toContain("visible first message");
+    expect(calls[0]?.execution.agentPrompt).toContain("visible second message");
+    expect(calls[0]?.execution.agentPrompt).not.toContain("INTERNAL first prompt");
+    expect(calls[0]?.execution.agentPrompt).not.toContain("INTERNAL second prompt");
   });
 
   it("retries collect-mode batches without losing queued items", async () => {
@@ -1393,8 +1444,8 @@ describe("followup queue collect routing", () => {
 
     scheduleFollowupDrain(key, runFollowup);
     await done.promise;
-    expect(calls[0]?.prompt).toContain("Queued #1\none");
-    expect(calls[0]?.prompt).toContain("Queued #2\ntwo");
+    expect(calls[0]?.execution.agentPrompt).toContain("Queued #1\none");
+    expect(calls[0]?.execution.agentPrompt).toContain("Queued #2\ntwo");
   });
 
   it("retries overflow summary delivery without losing dropped previews", async () => {
@@ -1425,8 +1476,8 @@ describe("followup queue collect routing", () => {
 
     scheduleFollowupDrain(key, runFollowup);
     await done.promise;
-    expect(calls[0]?.prompt).toContain("[Queue overflow] Dropped 1 message due to cap.");
-    expect(calls[0]?.prompt).toContain("- first");
+    expect(calls[0]?.execution.agentPrompt).toContain("[Queue overflow] Dropped 1 message due to cap.");
+    expect(calls[0]?.execution.agentPrompt).toContain("- first");
   });
 
   it("preserves routing metadata on overflow summary followups", async () => {
@@ -1474,7 +1525,7 @@ describe("followup queue collect routing", () => {
     expect(calls[0]?.originatingTo).toBe("channel:C1");
     expect(calls[0]?.originatingAccountId).toBe("work");
     expect(calls[0]?.originatingThreadId).toBe("1739142736.000100");
-    expect(calls[0]?.prompt).toContain("[Queue overflow] Dropped 1 message due to cap.");
+    expect(calls[0]?.execution.agentPrompt).toContain("[Queue overflow] Dropped 1 message due to cap.");
   });
 });
 
@@ -1550,8 +1601,8 @@ describe("followup queue drain restart after idle window", () => {
     await secondProcessed.promise;
 
     expect(calls).toHaveLength(2);
-    expect(calls[0]?.prompt).toBe("before-idle");
-    expect(calls[1]?.prompt).toBe("after-idle");
+    expect(calls[0]?.execution.agentPrompt).toBe("before-idle");
+    expect(calls[1]?.execution.agentPrompt).toBe("after-idle");
   });
 
   it("restarts an idle drain with the newest followup callback", async () => {
@@ -1673,8 +1724,8 @@ describe("followup queue drain restart after idle window", () => {
         { timeout: 1_000 },
       );
 
-      expect(calls[0]?.prompt).toBe("before-idle");
-      expect(calls[1]?.prompt).toBe("after-idle");
+      expect(calls[0]?.execution.agentPrompt).toBe("before-idle");
+      expect(calls[1]?.execution.agentPrompt).toBe("after-idle");
     } finally {
       clearSessionQueues([key]);
       drainA.clearFollowupDrainCallback(key);
@@ -1713,8 +1764,8 @@ describe("followup queue drain restart after idle window", () => {
 
     await allProcessed.promise;
     expect(calls).toHaveLength(2);
-    expect(calls[0]?.prompt).toBe("first");
-    expect(calls[1]?.prompt).toBe("second");
+    expect(calls[0]?.execution.agentPrompt).toBe("first");
+    expect(calls[1]?.execution.agentPrompt).toBe("second");
   });
 
   it("does not process messages after clearSessionQueues clears the callback", async () => {
@@ -1747,7 +1798,7 @@ describe("followup queue drain restart after idle window", () => {
 
     // Only the first message was processed; the post-clear one is still pending.
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.prompt).toBe("before-clear");
+    expect(calls[0]?.execution.agentPrompt).toBe("before-clear");
   });
 
   it("clears the remembered callback after a queue drains fully", async () => {
@@ -1774,7 +1825,7 @@ describe("followup queue drain restart after idle window", () => {
     await new Promise<void>((resolve) => setImmediate(resolve));
 
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.prompt).toBe("before-idle");
+    expect(calls[0]?.execution.agentPrompt).toBe("before-idle");
   });
 });
 
