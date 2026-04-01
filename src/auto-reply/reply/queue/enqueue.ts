@@ -10,10 +10,6 @@ import {
   type QueueSettings,
 } from "./types.js";
 
-/**
- * Keep queued message-id dedupe shared across bundled chunks so redeliveries
- * are rejected no matter which chunk receives the enqueue call.
- */
 const RECENT_QUEUE_MESSAGE_IDS_KEY = Symbol.for("openclaw.recentQueueMessageIds");
 
 const RECENT_QUEUE_MESSAGE_IDS = resolveGlobalDedupeCache(RECENT_QUEUE_MESSAGE_IDS_KEY, {
@@ -26,8 +22,6 @@ function buildRecentMessageIdKey(run: FollowupRun, queueKey: string): string | u
   if (!messageId) {
     return undefined;
   }
-  // Use JSON tuple serialization to avoid delimiter-collision edge cases when
-  // channel/to/account values contain "|" characters.
   return JSON.stringify([
     "queue",
     queueKey,
@@ -82,7 +76,6 @@ export function enqueueFollowupRun(
       : (item: FollowupRun, items: FollowupRun[]) =>
           isRunAlreadyQueued(item, items, dedupeMode === "prompt");
 
-  // Deduplicate: skip if the same message is already queued.
   if (shouldSkipQueueItem({ item: run, items: queue.items, dedupe })) {
     return false;
   }
@@ -92,7 +85,8 @@ export function enqueueFollowupRun(
 
   const shouldEnqueue = applyQueueDropPolicy({
     queue,
-    summarize: (item) => getFollowupSummaryLine(item) ?? "[Hidden message]",
+    summarize: (item) =>
+      getFollowupSummaryLine(item) ?? getFollowupAgentPrompt(item) ?? "[Hidden message]",
   });
   if (!shouldEnqueue) {
     return false;
@@ -105,9 +99,6 @@ export function enqueueFollowupRun(
   if (runFollowup) {
     rememberFollowupDrainCallback(key, runFollowup);
   }
-  // If drain finished and deleted the queue before this item arrived, a new queue
-  // object was created (draining: false) but nobody scheduled a drain for it.
-  // Use the cached callback to restart the drain now.
   if (restartIfIdle && !queue.draining) {
     kickFollowupDrainIfIdle(key);
   }

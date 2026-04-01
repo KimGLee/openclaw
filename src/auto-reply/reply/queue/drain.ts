@@ -1,8 +1,8 @@
 import { defaultRuntime } from "../../../runtime.js";
 import { resolveGlobalMap } from "../../../shared/global-singleton.js";
-import { renderDeferredBatch } from "../../../utils/deferred-render.js";
 import {
   beginQueueDrain,
+  buildCollectPrompt,
   clearQueueSummaryState,
   drainCollectQueueStep,
   drainNextQueueItem,
@@ -14,8 +14,6 @@ import { isRoutableChannel } from "../route-reply.js";
 import { FOLLOWUP_QUEUES } from "./state.js";
 import { type FollowupRun } from "./types.js";
 
-// Persists the most recent runFollowup callback per queue key so that
-// enqueueFollowupRun can restart a drain that finished and deleted the queue.
 const FOLLOWUP_DRAIN_CALLBACKS_KEY = Symbol.for("openclaw.followupDrainCallbacks");
 
 const FOLLOWUP_RUN_CALLBACKS = resolveGlobalMap<string, (run: FollowupRun) => Promise<void>>(
@@ -33,7 +31,6 @@ export function clearFollowupDrainCallback(key: string): void {
   FOLLOWUP_RUN_CALLBACKS.delete(key);
 }
 
-/** Restart the drain for `key` if it is currently idle, using the stored callback. */
 export function kickFollowupDrainIfIdle(key: string): void {
   const cb = FOLLOWUP_RUN_CALLBACKS.get(key);
   if (!cb) {
@@ -52,7 +49,6 @@ function resolveOriginRoutingMetadata(items: FollowupRun[]): OriginRoutingMetada
     originatingChannel: items.find((item) => item.originatingChannel)?.originatingChannel,
     originatingTo: items.find((item) => item.originatingTo)?.originatingTo,
     originatingAccountId: items.find((item) => item.originatingAccountId)?.originatingAccountId,
-    // Support both number (Telegram topic) and string (Slack thread_ts) thread IDs.
     originatingThreadId: items.find(
       (item) => item.originatingThreadId != null && item.originatingThreadId !== "",
     )?.originatingThreadId,
@@ -62,13 +58,15 @@ function resolveOriginRoutingMetadata(items: FollowupRun[]): OriginRoutingMetada
 function resolveCrossChannelKey(item: FollowupRun): { cross?: true; key?: string } {
   const { originatingChannel: channel, originatingTo: to, originatingAccountId: accountId } = item;
   const threadId = item.originatingThreadId;
+  if (item.messageId?.trim()) {
+    return { cross: true };
+  }
   if (!channel && !to && !accountId && (threadId == null || threadId === "")) {
     return {};
   }
   if (!isRoutableChannel(channel) || !to) {
     return { cross: true };
   }
-  // Support both number (Telegram topic IDs) and string (Slack thread_ts) thread IDs.
   const threadKey = threadId != null && threadId !== "" ? String(threadId) : "";
   return {
     key: [channel, to, accountId || "", threadKey].join("|"),
@@ -84,8 +82,6 @@ export function scheduleFollowupDrain(
     return;
   }
   const effectiveRunFollowup = FOLLOWUP_RUN_CALLBACKS.get(key) ?? runFollowup;
-  // Cache callback only when a drain actually starts. Avoid keeping stale
-  // callbacks around from finalize calls where no queue work is pending.
   rememberFollowupDrainCallback(key, effectiveRunFollowup);
   void (async () => {
     try {
@@ -93,12 +89,6 @@ export function scheduleFollowupDrain(
       while (queue.items.length > 0 || queue.droppedCount > 0) {
         await waitForQueueDebounce(queue);
         if (queue.mode === "collect") {
-          // Once the batch is mixed, never collect again within this drain.
-          // Prevents “collect after shift” collapsing different targets.
-          //
-          // Debug: `pnpm test src/auto-reply/reply/reply-flow.test.ts`
-          // Check if messages span multiple channels.
-          // If so, process individually to preserve per-message routing.
           const isCrossChannel = hasCrossChannelItems(queue.items, resolveCrossChannelKey);
 
           const collectDrainResult = await drainCollectQueueStep({
@@ -123,74 +113,15 @@ export function scheduleFollowupDrain(
 
           const routing = resolveOriginRoutingMetadata(items);
 
-          const renderableItems = items
-            .map((item) => item.display)
-            .filter((item): item is NonNullable<typeof item> => Boolean(item));
-          const canBatchRender = renderableItems.length === items.length;
-
-          if (!canBatchRender) {
-            if (summary) {
-              const summaryTarget = items[0];
-              if (!summaryTarget) {
-                break;
-              }
-              await effectiveRunFollowup({
-                execution: { visibility: "internal", agentPrompt: summary },
-                display: { visibility: "user-visible", text: summary },
-                run,
-                enqueuedAt: Date.now(),
-                originatingChannel: summaryTarget.originatingChannel,
-                originatingTo: summaryTarget.originatingTo,
-                originatingAccountId: summaryTarget.originatingAccountId,
-                originatingThreadId: summaryTarget.originatingThreadId,
-                originatingChatType: summaryTarget.originatingChatType,
-              });
-              clearQueueSummaryState(queue);
-            }
-            while (queue.items.length > 0) {
-              if (!(await drainNextQueueItem(queue.items, effectiveRunFollowup))) {
-                break;
-              }
-            }
-            continue;
-          }
-
-          let prompt: string;
-          try {
-            prompt = renderDeferredBatch({
-              title: "[Queued messages while agent was busy]",
-              items: renderableItems,
-              summary,
-            });
-          } catch (err) {
-            defaultRuntime.error?.(
-              `collect-mode deferred batch render failed for ${key}; falling back to individual drain: ${String(err)}`,
-            );
-            if (summary) {
-              const summaryTarget = items[0];
-              if (!summaryTarget) {
-                break;
-              }
-              await effectiveRunFollowup({
-                execution: { visibility: "internal", agentPrompt: summary },
-                display: { visibility: "user-visible", text: summary },
-                run,
-                enqueuedAt: Date.now(),
-                originatingChannel: summaryTarget.originatingChannel,
-                originatingTo: summaryTarget.originatingTo,
-                originatingAccountId: summaryTarget.originatingAccountId,
-                originatingThreadId: summaryTarget.originatingThreadId,
-                originatingChatType: summaryTarget.originatingChatType,
-              });
-              clearQueueSummaryState(queue);
-            }
-            collectState.forceIndividualCollect = true;
-            continue;
-          }
-
+          const prompt = buildCollectPrompt({
+            title: "[Queued messages while agent was busy]",
+            items,
+            summary,
+            renderItem: (item, idx) => `---\nQueued #${idx + 1}\n${item.execution.agentPrompt}`.trim(),
+          });
           await effectiveRunFollowup({
             execution: { visibility: "internal", agentPrompt: prompt },
-            display: { visibility: "user-visible", text: prompt },
+            display: { visibility: "summary-only", summaryLine: summary },
             run,
             enqueuedAt: Date.now(),
             ...routing,
@@ -212,7 +143,11 @@ export function scheduleFollowupDrain(
             !(await drainNextQueueItem(queue.items, async (item) => {
               await effectiveRunFollowup({
                 execution: { visibility: "internal", agentPrompt: summaryPrompt },
-                display: { visibility: "user-visible", text: summaryPrompt },
+                display: {
+                  visibility: "user-visible",
+                  text: summaryPrompt,
+                  summaryLine: summaryPrompt,
+                },
                 run,
                 enqueuedAt: Date.now(),
                 originatingChannel: item.originatingChannel,
