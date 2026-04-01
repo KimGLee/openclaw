@@ -43,6 +43,7 @@ function makeRun(overrides: Partial<FollowupRun["run"]> = {}): FollowupRun["run"
       defaultLevel: "off",
     },
     timeoutMs: 60_000,
+    blockReplyBreak: "message_end",
     ...overrides,
   };
 }

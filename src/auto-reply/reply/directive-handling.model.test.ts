@@ -495,7 +495,7 @@ describe("handleDirectiveOnly model persist behavior (fixes #1435)", () => {
       model: "claude-opus-4-5",
       initialModelLabel: "anthropic/claude-opus-4-5",
       formatModelSwitchEvent: (label) => `Switched to ${label}`,
-      command: { senderIsOwner: true },
+      senderIsOwner: true,
       ...rest,
       sessionEntry: entry,
       sessionStore: store,
@@ -672,7 +672,7 @@ describe("handleDirectiveOnly model persist behavior (fixes #1435)", () => {
       createHandleParams({
         directives,
         sessionEntry,
-        command: { senderIsOwner: false },
+        senderIsOwner: false,
       }),
     );
 
