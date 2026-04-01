@@ -29,6 +29,42 @@ beforeEach(async () => {
     })),
     normalizeChannelId: vi.fn((id: string) => id),
   }));
+  vi.doMock("../channels/plugins/target-parsing.js", () => ({
+    parseExplicitTargetForChannel: vi.fn(
+      (_channel: string, raw: string) =>
+        telegramMessagingForTest.parseExplicitTarget?.({ raw }) ?? null,
+    ),
+    resolveComparableTargetForChannel: vi.fn(
+      ({
+        channel,
+        rawTarget,
+        fallbackThreadId,
+      }: {
+        channel: string;
+        rawTarget?: string;
+        fallbackThreadId?: string | number;
+      }) => {
+        const parsed =
+          rawTarget && telegramMessagingForTest.parseExplicitTarget
+            ? telegramMessagingForTest.parseExplicitTarget({ raw: rawTarget })
+            : null;
+        return {
+          channel,
+          to: parsed?.to ?? rawTarget,
+          threadId: parsed?.threadId ?? fallbackThreadId,
+        };
+      },
+    ),
+    comparableChannelTargetsShareRoute: vi.fn(
+      ({
+        left,
+        right,
+      }: {
+        left?: { channel?: string; to?: string };
+        right?: { channel?: string; to?: string };
+      }) => left?.channel === right?.channel && left?.to === right?.to,
+    ),
+  }));
   ({ resolveDeliveryTarget } = await import("./isolated-agent/delivery-target.js"));
   vi.clearAllMocks();
   for (const key of Object.keys(mockStore)) {
