@@ -305,10 +305,15 @@ afterEach(async () => {
   debugFollowupTest(`active requests: ${JSON.stringify(requests ?? [])}`);
 });
 
+<<<<<<< HEAD
 const baseQueuedRun = (messageProvider = "whatsapp"): FollowupRun => {
   const baseRun = createMockFollowupRun();
   return createMockFollowupRun({ run: { ...baseRun.run, messageProvider } });
 };
+=======
+const baseQueuedRun = (messageProvider = "whatsapp"): FollowupRun =>
+  createMockFollowupRun({ run: { messageProvider } as Partial<FollowupRun["run"]> });
+>>>>>>> 406a524356 (fix(reply): wire owner fast-mode gate through directive params)
 
 function createQueuedRun(
   overrides: Partial<FollowupRun> & { run?: Partial<FollowupRun["run"]> } = {},
