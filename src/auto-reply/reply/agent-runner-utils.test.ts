@@ -35,7 +35,7 @@ function makeRun(overrides: Partial<FollowupRun["run"]> = {}): FollowupRun["run"
     enforceFinalTag: false,
     thinkLevel: "medium",
     verboseLevel: "off",
-    reasoningLevel: "none",
+    reasoningLevel: "off",
     execOverrides: {},
     bashElevated: {
       enabled: false,

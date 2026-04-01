@@ -375,6 +375,7 @@ describe("createFollowupRunner compaction", () => {
 
     const queued = createQueuedRun({
       run: {
+        ...createMockFollowupRun().run,
         verboseLevel: "on",
       },
     });
@@ -426,6 +427,7 @@ describe("createFollowupRunner compaction", () => {
 
     const queued = createQueuedRun({
       run: {
+        ...createMockFollowupRun().run,
         verboseLevel: "on",
       },
     });
@@ -481,6 +483,7 @@ describe("createFollowupRunner compaction", () => {
     const queuedNext = createQueuedRun({
       execution: { visibility: "internal", agentPrompt: "next" },
       run: {
+        ...createMockFollowupRun().run,
         sessionId: "session",
         sessionFile: path.join(path.dirname(storePath), "session.jsonl"),
       },
@@ -490,6 +493,7 @@ describe("createFollowupRunner compaction", () => {
 
     const current = createQueuedRun({
       run: {
+        ...createMockFollowupRun().run,
         verboseLevel: "on",
         sessionId: "session",
         sessionFile: path.join(path.dirname(storePath), "session.jsonl"),
@@ -531,6 +535,7 @@ describe("createFollowupRunner compaction", () => {
 
     const queued = createQueuedRun({
       run: {
+        ...createMockFollowupRun().run,
         verboseLevel: "on",
       },
     });
@@ -635,6 +640,7 @@ describe("createFollowupRunner compaction", () => {
 
     const queued = createQueuedRun({
       run: {
+        ...createMockFollowupRun().run,
         sessionFile: transcriptPath,
         workspaceDir,
       },
@@ -947,6 +953,7 @@ describe("createFollowupRunner messaging tool dedupe", () => {
       runner(
         createQueuedRun({
           run: {
+            ...createMockFollowupRun().run,
             config: cfg,
           },
         }),
