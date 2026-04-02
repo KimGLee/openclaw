@@ -85,7 +85,7 @@ export function scheduleFollowupDrain(
   rememberFollowupDrainCallback(key, effectiveRunFollowup);
   void (async () => {
     try {
-      const collectState = { forceIndividualCollect: false };
+      const collectState = { forceIndividualCollect: queue.collectForceIndividual };
       while (queue.items.length > 0 || queue.droppedCount > 0) {
         await waitForQueueDebounce(queue);
         if (queue.mode === "collect") {
@@ -173,6 +173,7 @@ export function scheduleFollowupDrain(
     } finally {
       queue.draining = false;
       if (queue.items.length === 0 && queue.droppedCount === 0) {
+        queue.collectForceIndividual = false;
         FOLLOWUP_QUEUES.delete(key);
         clearFollowupDrainCallback(key);
       } else {
