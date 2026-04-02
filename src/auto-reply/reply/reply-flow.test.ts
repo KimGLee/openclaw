@@ -1434,6 +1434,89 @@ describe("followup queue collect routing", () => {
     expect(calls[0]?.execution.agentPrompt).toContain("Queued #2\ntwo");
   });
 
+  it("keeps mixed collect retries on individual drain semantics", async () => {
+    const key = `test-mixed-collect-retry-${Date.now()}`;
+    const calls: FollowupRun[] = [];
+    const done = createDeferred<void>();
+    let attempt = 0;
+    const runFollowup = async (run: FollowupRun) => {
+      calls.push(run);
+      attempt += 1;
+      if (attempt === 2) {
+        throw new Error("transient failure");
+      }
+      if (attempt === 3) {
+        done.resolve();
+      }
+    };
+    const settings: QueueSettings = {
+      mode: "collect",
+      debounceMs: 0,
+      cap: 50,
+      dropPolicy: "summarize",
+    };
+
+    enqueueFollowupRun(
+      key,
+      createRun({ prompt: "display item", displayText: "visible item" }),
+      settings,
+    );
+    enqueueFollowupRun(key, createRun({ prompt: "hidden item" }), settings);
+
+    scheduleFollowupDrain(key, runFollowup);
+    await done.promise;
+
+    expect(calls.map((call) => call.execution.agentPrompt)).toEqual([
+      "display item",
+      "hidden item",
+      "hidden item",
+    ]);
+    expect(calls[2]?.display).toBeUndefined();
+  });
+
+  it("emits collect overflow summary before falling back from an invalid display batch", async () => {
+    const key = `test-collect-render-fallback-summary-${Date.now()}`;
+    const calls: FollowupRun[] = [];
+    const done = createDeferred<void>();
+    const expectedCalls = 2;
+    const settings: QueueSettings = {
+      mode: "collect",
+      debounceMs: 0,
+      cap: 1,
+      dropPolicy: "summarize",
+    };
+    const runFollowup = async (run: FollowupRun) => {
+      calls.push(run);
+      if (calls.length >= expectedCalls) {
+        done.resolve();
+      }
+    };
+
+    enqueueFollowupRun(
+      key,
+      createRun({ prompt: "first hidden item", displayText: "visible first" }),
+      settings,
+    );
+    enqueueFollowupRun(
+      key,
+      {
+        ...createRun({ prompt: "second hidden item", displayText: "visible second" }),
+        display: { visibility: "summary-only", text: "hidden without summary" },
+      },
+      settings,
+    );
+
+    scheduleFollowupDrain(key, runFollowup);
+    await done.promise;
+
+    expect(calls[0]?.execution.agentPrompt).toContain(
+      "[Queue overflow] Dropped 1 message due to cap.",
+    );
+    expect(calls[0]?.execution.agentPrompt).toContain("- visible first");
+    expect(calls[1]?.execution.agentPrompt).toBe("first hidden item");
+    expect(calls[1]?.display?.text).toBe("visible first");
+  });
+
   it("retries overflow summary delivery without losing dropped previews", async () => {
     const key = `test-overflow-summary-retry-${Date.now()}`;
     const calls: FollowupRun[] = [];
@@ -1816,7 +1899,6 @@ describe("followup queue drain restart after idle window", () => {
 });
 
 const emptyCfg = {} as OpenClawConfig;
->>>>>>> cb936aa564 (refactor: start followup queue execution/display split)
 
 describe("createReplyDispatcher", () => {
   it("drops empty payloads and exact silent tokens without media", async () => {
