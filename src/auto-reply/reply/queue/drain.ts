@@ -117,7 +117,9 @@ export function scheduleFollowupDrain(
             title: "[Queued messages while agent was busy]",
             items,
             summary,
-            renderItem: (item, idx) => `---\nQueued #${idx + 1}\n${item.execution.agentPrompt}`.trim(),
+            renderItem: (item, idx) => `---
+Queued #${idx + 1}
+${item.execution.agentPrompt}`.trim(),
           });
           await effectiveRunFollowup({
             execution: { visibility: "internal", agentPrompt: prompt },
