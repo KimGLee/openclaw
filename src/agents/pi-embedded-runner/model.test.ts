@@ -212,6 +212,49 @@ describe("buildInlineProviderModels", () => {
     expect(result[0].headers).toEqual({ "User-Agent": "custom-agent/1.0" });
   });
 
+  it("merges provider request headers into inline models", () => {
+    const providers: Parameters<typeof buildInlineProviderModels>[0] = {
+      proxy: {
+        baseUrl: "https://proxy.example.com/v1",
+        api: "openai-completions",
+        request: {
+          headers: {
+            "X-Tenant": "acme",
+          },
+        },
+        models: [makeModel("proxy-model")],
+      },
+    };
+
+    const result = buildInlineProviderModels(providers);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].headers).toEqual({ "X-Tenant": "acme" });
+  });
+
+  it("keeps inline provider transport overrides once the llm transport adapter is available", () => {
+    const result = buildInlineProviderModels({
+      proxy: {
+        baseUrl: "https://proxy.example.com/v1",
+        api: "openai-completions",
+        request: {
+          proxy: {
+            mode: "explicit-proxy",
+            url: "http://proxy.internal:8443",
+          },
+        },
+        models: [makeModel("proxy-model")],
+      },
+    } as unknown as Parameters<typeof buildInlineProviderModels>[0]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      provider: "proxy",
+      api: "openai-completions",
+      baseUrl: "https://proxy.example.com/v1",
+    });
+  });
+
   it("omits headers when neither provider nor model specifies them", () => {
     const providers: Parameters<typeof buildInlineProviderModels>[0] = {
       plain: {
@@ -947,6 +990,17 @@ describe("resolveModel", () => {
         "X-Proxy-Auth": "token-123",
       },
     );
+  });
+
+  it("resolves github-copilot Claude dynamic models to anthropic-messages by default", () => {
+    const result = resolveModelForTest("github-copilot", "claude-sonnet-4.6", "/tmp/agent");
+
+    expect(result.error).toBeUndefined();
+    expect(result.model).toMatchObject({
+      provider: "github-copilot",
+      id: "claude-sonnet-4.6",
+      api: "anthropic-messages",
+    });
   });
 
   it("builds an openai fallback for gpt-5.4 mini from the gpt-5-mini template", () => {

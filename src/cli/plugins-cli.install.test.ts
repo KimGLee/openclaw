@@ -3,7 +3,7 @@ import { installedPluginRoot } from "../../test/helpers/bundled-plugin-paths.js"
 import type { OpenClawConfig } from "../config/config.js";
 import {
   applyExclusiveSlotSelection,
-  buildPluginStatusReport,
+  buildPluginDiagnosticsReport,
   clearPluginManifestRegistryCache,
   enablePluginInConfig,
   installHooksFromNpmSpec,
@@ -172,6 +172,7 @@ describe("plugins cli install", () => {
       ok: true,
       pluginId: "alpha",
       targetDir: cliInstallPath("alpha"),
+      extensions: ["index.js"],
       version: "1.2.3",
       marketplaceName: "Claude",
       marketplaceSource: "local/repo",
@@ -179,7 +180,7 @@ describe("plugins cli install", () => {
     });
     enablePluginInConfig.mockReturnValue({ config: enabledCfg });
     recordPluginInstall.mockReturnValue(installedCfg);
-    buildPluginStatusReport.mockReturnValue({
+    buildPluginDiagnosticsReport.mockReturnValue({
       plugins: [{ id: "alpha", kind: "provider" }],
       diagnostics: [],
     });

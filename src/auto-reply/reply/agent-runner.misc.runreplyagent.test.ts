@@ -7,9 +7,26 @@ import type { SessionEntry } from "../../config/sessions.js";
 import { loadSessionStore, saveSessionStore } from "../../config/sessions.js";
 import { onAgentEvent } from "../../infra/agent-events.js";
 import { peekSystemEvents, resetSystemEventsForTest } from "../../infra/system-events.js";
+import {
+  clearMemoryPluginState,
+  registerMemoryFlushPlanResolver,
+} from "../../plugins/memory-state.js";
 import type { TemplateContext } from "../templating.js";
 import type { FollowupRun, QueueSettings } from "./queue.js";
 import { createMockTypingController } from "./test-helpers.js";
+
+function createCliBackendTestConfig() {
+  return {
+    agents: {
+      defaults: {
+        cliBackends: {
+          "claude-cli": {},
+          "google-gemini-cli": {},
+        },
+      },
+    },
+  };
+}
 
 const runEmbeddedPiAgentMock = vi.fn();
 const runCliAgentMock = vi.fn();
@@ -111,6 +128,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   resetSystemEventsForTest();
+  clearMemoryPluginState();
 });
 
 describe("runReplyAgent onAgentRunStart", () => {
@@ -144,8 +162,11 @@ describe("runReplyAgent onAgentRunStart", () => {
         messageProvider: "webchat",
         sessionFile: "/tmp/session.jsonl",
         workspaceDir: "/tmp",
-        config: {},
-        skillsSnapshot: { prompt: "", skills: [] },
+        config:
+          provider === "claude-cli"
+            ? { agents: { defaults: { cliBackends: { "claude-cli": {} } } } }
+            : createCliBackendTestConfig(),
+        skillsSnapshot: {},
         provider,
         model,
         thinkLevel: "low",
@@ -257,8 +278,8 @@ describe("runReplyAgent authProfileId fallback scoping", () => {
         messageProvider: "telegram",
         sessionFile: "/tmp/session.jsonl",
         workspaceDir: "/tmp",
-        config: {},
-        skillsSnapshot: { prompt: "", skills: [] },
+        config: createCliBackendTestConfig(),
+        skillsSnapshot: {},
         provider: "anthropic",
         model: "claude-opus",
         authProfileId: "anthropic:openclaw",
@@ -1067,8 +1088,8 @@ describe("runReplyAgent claude-cli routing", () => {
         messageProvider: "webchat",
         sessionFile: "/tmp/session.jsonl",
         workspaceDir: "/tmp",
-        config: {},
-        skillsSnapshot: { prompt: "", skills: [] },
+        config: { agents: { defaults: { cliBackends: { "claude-cli": {} } } } },
+        skillsSnapshot: {},
         provider: "claude-cli",
         model: "opus-4.5",
         thinkLevel: "low",
@@ -1168,8 +1189,8 @@ describe("runReplyAgent messaging tool suppression", () => {
         messageProvider,
         sessionFile: "/tmp/session.jsonl",
         workspaceDir: "/tmp",
-        config: {},
-        skillsSnapshot: { prompt: "", skills: [] },
+        config: createCliBackendTestConfig(),
+        skillsSnapshot: {},
         provider: "anthropic",
         model: "claude",
         thinkLevel: "low",
@@ -1393,8 +1414,8 @@ describe("runReplyAgent reminder commitment guard", () => {
         messageProvider: "telegram",
         sessionFile: "/tmp/session.jsonl",
         workspaceDir: "/tmp",
-        config: {},
-        skillsSnapshot: { prompt: "", skills: [] },
+        config: createCliBackendTestConfig(),
+        skillsSnapshot: {},
         provider: "anthropic",
         model: "claude",
         thinkLevel: "low",
@@ -1614,8 +1635,8 @@ describe("runReplyAgent fallback reasoning tags", () => {
         messageProvider: "whatsapp",
         sessionFile: "/tmp/session.jsonl",
         workspaceDir: "/tmp",
-        config: {},
-        skillsSnapshot: { prompt: "", skills: [] },
+        config: createCliBackendTestConfig(),
+        skillsSnapshot: {},
         provider: "anthropic",
         model: "claude",
         thinkLevel: "low",
@@ -1662,9 +1683,9 @@ describe("runReplyAgent fallback reasoning tags", () => {
     });
     runWithModelFallbackMock.mockImplementationOnce(
       async ({ run }: RunWithModelFallbackParams) => ({
-        result: await run("google-gemini-cli", "gemini-3"),
-        provider: "google-gemini-cli",
-        model: "gemini-3",
+        result: await run("google", "gemini-2.5-pro"),
+        provider: "google",
+        model: "gemini-2.5-pro",
       }),
     );
 
@@ -1675,6 +1696,14 @@ describe("runReplyAgent fallback reasoning tags", () => {
   });
 
   it("enforces <final> during memory flush on fallback providers", async () => {
+    registerMemoryFlushPlanResolver(() => ({
+      softThresholdTokens: 1_000,
+      forceFlushTranscriptBytes: 1_000_000_000,
+      reserveTokensFloor: 20_000,
+      prompt: "Pre-compaction memory flush.",
+      systemPrompt: "Flush memory into the configured memory file.",
+      relativePath: "memory/active.md",
+    }));
     runEmbeddedPiAgentMock.mockImplementation(async (params: EmbeddedPiAgentParams) => {
       if (params.prompt?.includes("Pre-compaction memory flush.")) {
         return { payloads: [], meta: {} };
@@ -1735,8 +1764,8 @@ describe("runReplyAgent response usage footer", () => {
         messageProvider: "whatsapp",
         sessionFile: "/tmp/session.jsonl",
         workspaceDir: "/tmp",
-        config: {},
-        skillsSnapshot: { prompt: "", skills: [] },
+        config: createCliBackendTestConfig(),
+        skillsSnapshot: {},
         provider: "anthropic",
         model: "claude",
         thinkLevel: "low",
@@ -1846,8 +1875,8 @@ describe("runReplyAgent transient HTTP retry", () => {
         messageProvider: "telegram",
         sessionFile: "/tmp/session.jsonl",
         workspaceDir: "/tmp",
-        config: {},
-        skillsSnapshot: { prompt: "", skills: [] },
+        config: createCliBackendTestConfig(),
+        skillsSnapshot: {},
         provider: "anthropic",
         model: "claude",
         thinkLevel: "low",
@@ -1924,8 +1953,8 @@ describe("runReplyAgent billing error classification", () => {
         messageProvider: "telegram",
         sessionFile: "/tmp/session.jsonl",
         workspaceDir: "/tmp",
-        config: {},
-        skillsSnapshot: { prompt: "", skills: [] },
+        config: createCliBackendTestConfig(),
+        skillsSnapshot: {},
         provider: "anthropic",
         model: "claude",
         thinkLevel: "low",
@@ -1987,8 +2016,8 @@ describe("runReplyAgent mid-turn rate-limit fallback", () => {
         messageProvider: "telegram",
         sessionFile: "/tmp/session.jsonl",
         workspaceDir: "/tmp",
-        config: {},
-        skillsSnapshot: { prompt: "", skills: [] },
+        config: createCliBackendTestConfig(),
+        skillsSnapshot: {},
         provider: "anthropic",
         model: "claude",
         thinkLevel: "low",

@@ -5,6 +5,8 @@ import {
   type ProviderAuthMethodNonInteractiveContext,
   type ProviderAuthResult,
   type ProviderDiscoveryContext,
+  type ProviderReplayPolicy,
+  type ProviderReplayPolicyContext,
 } from "openclaw/plugin-sdk/plugin-entry";
 import {
   buildOllamaProvider,
@@ -25,6 +27,35 @@ import {
 
 const PROVIDER_ID = "ollama";
 const DEFAULT_API_KEY = "ollama-local";
+
+function buildOllamaReplayPolicy(
+  ctx: ProviderReplayPolicyContext,
+): ProviderReplayPolicy | undefined {
+  if (
+    ctx.modelApi !== "openai-completions" &&
+    ctx.modelApi !== "openai-responses" &&
+    ctx.modelApi !== "openai-codex-responses" &&
+    ctx.modelApi !== "azure-openai-responses"
+  ) {
+    return undefined;
+  }
+
+  return {
+    sanitizeToolCallIds: true,
+    toolCallIdMode: "strict",
+    ...(ctx.modelApi === "openai-completions"
+      ? {
+          applyAssistantFirstOrderingFix: true,
+          validateGeminiTurns: true,
+          validateAnthropicTurns: true,
+        }
+      : {
+          applyAssistantFirstOrderingFix: false,
+          validateGeminiTurns: false,
+          validateAnthropicTurns: false,
+        }),
+  };
+}
 
 function shouldSkipAmbientOllamaDiscovery(env: NodeJS.ProcessEnv): boolean {
   return Boolean(env.VITEST) || env.NODE_ENV === "test";
@@ -149,6 +180,7 @@ export default definePluginEntry({
           providerBaseUrl: config?.models?.providers?.ollama?.baseUrl,
         });
       },
+      buildReplayPolicy: (ctx) => buildOllamaReplayPolicy(ctx),
       wrapStreamFn: (ctx) => {
         return createConfiguredOllamaCompatStreamWrapper(ctx);
       },
@@ -177,6 +209,8 @@ export default definePluginEntry({
           mode: "api-key",
         };
       },
+      shouldDeferSyntheticProfileAuth: ({ resolvedApiKey }) =>
+        resolvedApiKey?.trim() === DEFAULT_API_KEY,
       buildUnknownModelHint: () =>
         "Ollama requires authentication to be registered as a provider. " +
         'Set OLLAMA_API_KEY="ollama-local" (any value works) or run "openclaw configure". ' +
