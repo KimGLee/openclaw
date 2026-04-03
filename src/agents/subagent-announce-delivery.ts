@@ -29,6 +29,7 @@ import {
   isInternalMessageChannel,
   normalizeMessageChannel,
 } from "../utils/message-channel.js";
+import { toUserFacingContent } from "../utils/user-facing-content.js";
 import { buildAnnounceIdempotencyKey, resolveQueueAnnounceId } from "./announce-idempotency.js";
 import type { AgentInternalEvent } from "./internal-events.js";
 import { isEmbeddedPiRunActive, queueEmbeddedPiMessage } from "./pi-embedded.js";
@@ -316,6 +317,12 @@ async function sendAnnounce(item: AnnounceQueueItem) {
   const cfg = subagentAnnounceDeliveryDeps.loadConfig();
   const announceTimeoutMs = resolveSubagentAnnounceTimeoutMs(cfg);
   const requesterIsSubagent = isInternalAnnounceRequesterSession(item.sessionKey);
+  if (!requesterIsSubagent) {
+    toUserFacingContent({
+      payload: item.display,
+      source: "queued-announce-display",
+    });
+  }
   const origin = item.origin;
   const threadId =
     origin?.threadId != null && origin.threadId !== "" ? String(origin.threadId) : undefined;
@@ -476,6 +483,7 @@ async function maybeQueueSubagentAnnounce(params: {
 async function sendSubagentAnnounceDirectly(params: {
   targetRequesterSessionKey: string;
   triggerMessage: string;
+  summaryLine?: string;
   internalEvents?: AgentInternalEvent[];
   expectsCompletionMessage: boolean;
   bestEffortDeliver?: boolean;
@@ -534,6 +542,19 @@ async function sendSubagentAnnounceDirectly(params: {
         path: "none",
       };
     }
+    const directUserFacingContent = deliveryTarget.deliver
+      ? toUserFacingContent({
+          payload: params.summaryLine?.trim()
+            ? {
+                visibility: "user-visible",
+                text: params.summaryLine,
+                summaryLine: params.summaryLine,
+              }
+            : undefined,
+          source: "queued-announce-display",
+        })
+      : undefined;
+
     await runAnnounceDeliveryWithRetry({
       operation: params.expectsCompletionMessage
         ? "completion direct announce agent call"
@@ -544,7 +565,7 @@ async function sendSubagentAnnounceDirectly(params: {
           method: "agent",
           params: {
             sessionKey: canonicalRequesterSessionKey,
-            message: params.triggerMessage,
+            message: directUserFacingContent?.text ?? params.triggerMessage,
             deliver: deliveryTarget.deliver,
             bestEffortDeliver: params.bestEffortDeliver,
             internalEvents: params.internalEvents,
@@ -632,6 +653,7 @@ export async function deliverSubagentAnnouncement(params: {
       await sendSubagentAnnounceDirectly({
         targetRequesterSessionKey: params.targetRequesterSessionKey,
         triggerMessage: params.triggerMessage,
+        summaryLine: params.summaryLine,
         internalEvents: params.internalEvents,
         directIdempotencyKey: params.directIdempotencyKey,
         completionDirectOrigin: params.completionDirectOrigin,
