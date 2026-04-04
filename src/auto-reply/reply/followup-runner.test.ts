@@ -800,7 +800,7 @@ describe("createFollowupRunner messaging tool dedupe", () => {
     expect(onBlockReply).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects non-user-visible queued followup display payloads at outbound boundary", async () => {
+  it("drops non-user-visible queued followup display payloads at outbound boundary", async () => {
     const onBlockReply = createAsyncReplySpy();
     runEmbeddedPiAgentMock.mockResolvedValueOnce({
       meta: {},
@@ -808,13 +808,14 @@ describe("createFollowupRunner messaging tool dedupe", () => {
     });
     const runner = createMessagingDedupeRunner(onBlockReply);
 
-    await expect(
-      runner(
-        createQueuedRun({
-          display: { visibility: "summary-only", summaryLine: "hidden summary" },
-        }),
-      ),
-    ).rejects.toThrow(/expected visibility=user-visible/);
+    await runner(
+      createQueuedRun({
+        display: { visibility: "summary-only", summaryLine: "hidden summary" },
+      }),
+    );
+
+    expect(onBlockReply).not.toHaveBeenCalled();
+    expect(routeReplyMock).not.toHaveBeenCalled();
   });
 
   it("suppresses replies when a messaging tool sent via the same provider + target", async () => {
