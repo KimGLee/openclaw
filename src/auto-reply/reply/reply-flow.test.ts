@@ -15,7 +15,7 @@ import {
   scheduleFollowupDrain,
 } from "./queue.js";
 import { createReplyDispatcher } from "./reply-dispatcher.js";
-import { createReplyToModeFilter, resolveReplyToMode } from "./reply-threading.js";
+import { createReplyToModeFilter } from "./reply-threading.js";
 import { parseSlackDirectives, hasSlackDirectives } from "./slack-directives.js";
 
 describe("normalizeInboundTextNewlines", () => {
@@ -1416,7 +1416,6 @@ describe("followup queue collect routing", () => {
     expect(calls[0]?.execution.agentPrompt).not.toContain("INTERNAL second prompt");
   });
 
-=======
   it("falls back to individual followups when collect items have no display payload", async () => {
     const key = `test-collect-no-display-fallback-${Date.now()}`;
     const calls: FollowupRun[] = [];
@@ -1844,7 +1843,11 @@ describe("followup queue collect routing", () => {
       });
 
       enqueueFollowupRun(key, createRun({ prompt: "hidden first" }), settings);
-      enqueueFollowupRun(key, createRun({ prompt: "visible second", displayText: "visible second" }), settings);
+      enqueueFollowupRun(
+        key,
+        createRun({ prompt: "visible second", displayText: "visible second" }),
+        settings,
+      );
 
       scheduleFollowupDrain(key, runFollowup);
       await vi.advanceTimersByTimeAsync(5_000);
